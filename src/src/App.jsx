@@ -1,1455 +1,407 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
-import {
-  getAuth,
-  signInAnonymously,
-  signInWithCustomToken,
-  onAuthStateChanged
-} from 'firebase/auth';
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  onSnapshot
-} from 'firebase/firestore';
-import {
-  Utensils,
-  ShoppingBag,
-  Truck,
-  ChefHat,
-  Search,
-  Plus,
-  Minus,
-  Phone,
-  MapPin,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  UserPlus,
-  Users,
-  PackageCheck,
-  Flame,
-  Sparkles,
-  Volume2,
-  VolumeX,
-  RefreshCw,
-  ArrowRight,
-  Trash2,
-  DollarSign,
-  Bike,
-  Store,
-  Calendar,
-  X,
-  Filter,
-  Check,
-  Navigation,
-  Receipt,
-  ShieldCheck,
-  SlidersHorizontal
+Import React, { useState, useEffect } from 'react';
+import { 
+  Utensils, ShoppingBag, Clock, MapPin, Phone, CheckCircle2, 
+  Truck, ChefHat, AlertCircle, Plus, Minus, Trash2, Shield, 
+  Lock, ArrowRight, UserCheck, X, Check, Flame, Star
 } from 'lucide-react';
 
 // ==========================================
-// FIREBASE INITIALIZATION (MANDATORY PATTERN)
+// 1. FIREBASE & APP CONFIGURATION
 // ==========================================
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+import { initializeApp } from 'firebase/app';
+import { 
+  getFirestore, collection, addDoc, updateDoc, deleteDoc, 
+  doc, onSnapshot, query, orderBy 
+} from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDummyKeyForAgencyDemo99",
+  authDomain: "moon-captures-restaurant.firebaseapp.com",
+  projectId: "moon-captures-restaurant",
+  storageBucket: "moon-captures-restaurant.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef"
+};
+
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'malabar-grand-hotel-app';
+const appId = "moon-captures-demo-v1";
 
 // ==========================================
-// INITIAL SEED DATA (KERALA / MALABAR CUISINE)
+// 2. INITIAL SEED DATA
 // ==========================================
-const INITIAL_MENU_ITEMS = [
-  {
-    id: 'dish-1',
-    name: 'Malabar Chicken Dum Biryani',
-    category: 'Biryani & Rice',
-    price: 220,
-    prepTime: '15-20 mins',
-    isVeg: false,
-    inStock: true,
-    bestseller: true,
-    spicyLevel: 'Medium',
-    description: 'Traditional Thalassery kaima rice slow-cooked with tender marinated chicken, caramelized onions, and roasted cashews.',
-    emoji: '🍛'
-  },
-  {
-    id: 'dish-2',
-    name: 'Quarter Alfaham Kuzhimandhi',
-    category: 'Biryani & Rice',
-    price: 260,
-    prepTime: '15 mins',
-    isVeg: false,
-    inStock: true,
-    bestseller: true,
-    spicyLevel: 'Spicy',
-    description: 'Charcoal-grilled Arabian spiced chicken served over fragrant smoked Mandhi rice with garlic mayo and tomato chutney.',
-    emoji: '🍗'
-  },
-  {
-    id: 'dish-3',
-    name: 'Nadan Beef Pepper Roast',
-    category: 'Malabar Specials',
-    price: 240,
-    prepTime: '20 mins',
-    isVeg: false,
-    inStock: true,
-    bestseller: true,
-    spicyLevel: 'Hot',
-    description: 'Slow-roasted tender beef cubes tossed with crushed black pepper, curry leaves, coconut slivers, and Malabar spices.',
-    emoji: '🥩'
-  },
-  {
-    id: 'dish-4',
-    name: 'Karimeen Pollichathu (Pearl Spot)',
-    category: 'Malabar Specials',
-    price: 340,
-    prepTime: '25 mins',
-    isVeg: false,
-    inStock: true,
-    bestseller: false,
-    spicyLevel: 'Spicy',
-    description: 'Fresh pearl spot fish marinated in tangy red masala, wrapped in banana leaf and pan-seared to perfection.',
-    emoji: '🐟'
-  },
-  {
-    id: 'dish-5',
-    name: 'Lebanese Jumbo Chicken Shawarma Roll',
-    category: 'Grill & Shawarma',
-    price: 140,
-    prepTime: '10 mins',
-    isVeg: false,
-    inStock: true,
-    bestseller: true,
-    spicyLevel: 'Medium',
-    description: 'Loaded spit-roasted chicken strips wrapped in rumali roti with toum garlic sauce, pickled veggies, and fries.',
-    emoji: '🌯'
-  },
-  {
-    id: 'dish-6',
-    name: 'Peri-Peri Charcoal Half Grill Chicken',
-    category: 'Grill & Shawarma',
-    price: 290,
-    prepTime: '20 mins',
-    isVeg: false,
-    inStock: true,
-    bestseller: false,
-    spicyLevel: 'Hot',
-    description: 'Juicy half chicken basted in fiery peri-peri marinade, served with 2 kuboos, garlic dip, and fresh salad.',
-    emoji: '🔥'
-  },
-  {
-    id: 'dish-7',
-    name: 'Flaky Kerala Coin Parotta (Set of 3)',
-    category: 'Breads & Curries',
-    price: 60,
-    prepTime: '10 mins',
-    isVeg: true,
-    inStock: true,
-    bestseller: true,
-    spicyLevel: 'Mild',
-    description: 'Golden, multi-layered crispy and soft Malabar parottas beaten by hand on a hot griddle.',
-    emoji: '🫓'
-  },
-  {
-    id: 'dish-8',
-    name: 'Paneer Butter Masala',
-    category: 'Breads & Curries',
-    price: 190,
-    prepTime: '15 mins',
-    isVeg: true,
-    inStock: true,
-    bestseller: false,
-    spicyLevel: 'Mild',
-    description: 'Soft cottage cheese cubes simmered in a rich, creamy tomato and cashew gravy finished with kasuri methi.',
-    emoji: '🧀'
-  },
-  {
-    id: 'dish-9',
-    name: 'Mint Ginger Fresh Lime Cooler',
-    category: 'Beverages',
-    price: 50,
-    prepTime: '5 mins',
-    isVeg: true,
-    inStock: true,
-    bestseller: true,
-    spicyLevel: 'Mild',
-    description: 'Refreshing freshly squeezed lime blended with crushed mint leaves, zesty ginger, and chilled soda or water.',
-    emoji: '🍹'
-  },
-  {
-    id: 'dish-10',
-    name: 'Malabar Sulaimani & Pazhampori Combo',
-    category: 'Beverages',
-    price: 85,
-    prepTime: '10 mins',
-    isVeg: true,
-    inStock: true,
-    bestseller: false,
-    spicyLevel: 'Mild',
-    description: 'Spiced cardamom-clove black tea paired with two crispy golden ripe banana fritters.',
-    emoji: '☕'
-  }
+const INITIAL_MENU = [
+  { id: '1', name: 'Malabar Chicken Biriyani', price: 160, category: 'Rice & Biriyani', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&q=80', description: 'Authentic Thalassery style kaima rice biriyani with succulent chicken.', available: true },
+  { id: '2', name: 'Beef Porotta Combo', price: 210, category: 'Special Combos', image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=500&q=80', description: '2 Kerala Porottas served with spicy, slow-roasted Kerala beef fry.', available: true },
+  { id: '3', name: 'Al Faham Mandi (Quarter)', price: 180, category: 'Mandi', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500&q=80', description: 'Smoky grilled Al Faham chicken served with long-grain mandi rice.', available: true },
+  { id: '4', name: 'Ghee Rice & Butter Chicken', price: 230, category: 'Combos', image: 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=500&q=80', description: 'Rich aromatic ghee rice paired with creamy north Indian butter chicken.', available: true },
+  { id: '5', name: 'Fresh Lime Mint Cooler', price: 40, category: 'Beverages', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=500&q=80', description: 'Refreshing zesty lime spiked with crushed fresh mint leaves.', available: true }
 ];
 
-const INITIAL_DELIVERY_STAFF = [
-  {
-    id: 'staff-1',
-    name: 'Riyas K.',
-    phone: '9847011223',
-    vehicle: 'Honda Activa • KL-11-AB-4412',
-    type: 'Temporary / Peak Rush',
-    active: true,
-    joinedAt: Date.now() - 86400000
-  },
-  {
-    id: 'staff-2',
-    name: 'Vishnu Prasad',
-    phone: '9447233445',
-    vehicle: 'TVS Apache • KL-10-CD-8890',
-    type: 'Part-Time Evening',
-    active: true,
-    joinedAt: Date.now() - 72000000
-  },
-  {
-    id: 'staff-3',
-    name: 'Shafeeq M.',
-    phone: '9995466778',
-    vehicle: 'Ather 450X EV • KL-58-EF-1029',
-    type: 'Full-Time Fleet',
-    active: true,
-    joinedAt: Date.now() - 120000000
-  }
-];
-
-const INITIAL_SAMPLE_ORDERS = [
-  {
-    id: 'ord-sample-101',
-    orderNumber: 'MG-1042',
-    customerName: 'Anoop Menon',
-    customerPhone: '9895123456',
-    orderType: 'DELIVERY',
-    addressOrTable: 'Flat 4B, Skyline Emerald Apartments, Bypass Road',
-    paymentMethod: 'Cash on Delivery (COD)',
-    items: [
-      { id: 'dish-1', name: 'Malabar Chicken Dum Biryani', price: 220, qty: 2, emoji: '🍛' },
-      { id: 'dish-5', name: 'Lebanese Jumbo Chicken Shawarma Roll', price: 140, qty: 1, emoji: '🌯' },
-      { id: 'dish-9', name: 'Mint Ginger Fresh Lime Cooler', price: 50, qty: 2, emoji: '🍹' }
-    ],
-    subtotal: 680,
-    deliveryFee: 30,
-    totalAmount: 710,
-    status: 'NEW', // NEW | PREPARING | OUT_FOR_DELIVERY | COMPLETED
-    assignedStaffId: '',
-    assignedStaffName: '',
-    assignedStaffPhone: '',
-    notes: 'Extra mayo and pickle please',
-    createdAt: Date.now() - 1000 * 60 * 6
-  },
-  {
-    id: 'ord-sample-102',
-    orderNumber: 'MG-1041',
-    customerName: 'Fathima Suhara',
-    customerPhone: '9746987654',
-    orderType: 'DELIVERY',
-    addressOrTable: 'Green Villa, Near Civil Station Post Office, 2nd Cross',
-    paymentMethod: 'UPI Paid',
-    items: [
-      { id: 'dish-2', name: 'Quarter Alfaham Kuzhimandhi', price: 260, qty: 2, emoji: '🍗' },
-      { id: 'dish-3', name: 'Nadan Beef Pepper Roast', price: 240, qty: 1, emoji: '🥩' }
-    ],
-    subtotal: 760,
-    deliveryFee: 30,
-    totalAmount: 790,
-    status: 'OUT_FOR_DELIVERY',
-    assignedStaffId: 'staff-1',
-    assignedStaffName: 'Riyas K.',
-    assignedStaffPhone: '9847011223',
-    notes: 'Call when reaching the gate',
-    createdAt: Date.now() - 1000 * 60 * 22
-  }
-];
-
-const CATEGORIES = [
-  'All',
-  'Biryani & Rice',
-  'Malabar Specials',
-  'Grill & Shawarma',
-  'Breads & Curries',
-  'Beverages'
+const INITIAL_RIDERS = [
+  { id: 'r1', name: 'Rahul M.', phone: '+91 98765 43210', status: 'Available' },
+  { id: 'r2', name: 'Anshad K.', phone: '+91 91234 56789', status: 'Available' },
+  { id: 'r3', name: 'Midhun Raj', phone: '+91 99443 22110', status: 'Busy' }
 ];
 
 export default function App() {
-  // ==========================================
-  // STATE MANAGEMENT
-  // ==========================================
-  const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [activePortal, setActivePortal] = useState('CUSTOMER'); // CUSTOMER | ADMIN | DELIVERY
-  const [toast, setToast] = useState(null);
+  const [role, setRole] = useState('customer');
+  const [adminAuthed, setAdminAuthed] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [selectedRider, setSelectedRider] = useState(null);
 
-  // Firestore Collections State
-  const [menuItems, setMenuItems] = useState([]);
+  const [menu, setMenu] = useState(INITIAL_MENU);
   const [orders, setOrders] = useState([]);
-  const [deliveryStaff, setDeliveryStaff] = useState([]);
-  const [isSeeding, setIsSeeding] = useState(false);
+  const [riders, setRiders] = useState(INITIAL_RIDERS);
 
-  // Customer Portal State
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [vegOnly, setVegOnly] = useState(false);
+  // Customer State
   const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [customerTab, setCustomerTab] = useState('MENU'); // MENU | TRACKER
-  const [orderForm, setOrderForm] = useState({
-    customerName: '',
-    customerPhone: '',
-    orderType: 'DELIVERY', // DELIVERY | TAKEAWAY | DINE_IN
-    addressOrTable: '',
-    paymentMethod: 'Cash on Delivery (COD)',
-    notes: ''
-  });
-  const [recentOrderIds, setRecentOrderIds] = useState([]);
-  const [trackerPhoneSearch, setTrackerPhoneSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [orderType, setOrderType] = useState('Delivery');
+  const [customerForm, setCustomerForm] = useState({ name: '', phone: '', address: '', note: '' });
+  const [activeOrderTracker, setActiveOrderTracker] = useState(null);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  // Admin Portal State
-  const [adminTab, setAdminTab] = useState('ORDERS'); // ORDERS | STAFF | MENU
-  const [adminStatusFilter, setAdminStatusFilter] = useState('ALL');
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [newStaffForm, setNewStaffForm] = useState({
-    name: '',
-    phone: '',
-    vehicle: '',
-    type: 'Temporary / Peak Rush'
-  });
-  const [newDishForm, setNewDishForm] = useState({
-    name: '',
-    category: 'Biryani & Rice',
-    price: '',
-    prepTime: '15 mins',
-    isVeg: false,
-    spicyLevel: 'Medium',
-    description: '',
-    emoji: '🍛'
-  });
-  const [showAddDishModal, setShowAddDishModal] = useState(false);
-
-  // Delivery Partner Portal State
-  const [selectedRiderId, setSelectedRiderId] = useState('staff-1');
-  const [riderFilter, setRiderFilter] = useState('ACTIVE'); // ACTIVE | COMPLETED
-
-  const prevOrderCountRef = useRef(0);
-
-  // Helper to show toast notification
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => {
-      setToast((prev) => (prev?.message === message ? null : prev));
-    }, 3500);
-  };
-
-  // Web Audio Synth for Kitchen Order Alert Bell
-  const playKitchenBell = () => {
-    if (!soundEnabled) return;
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.18, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.55);
-    } catch (e) {
-      // Ignore audio errors if browser blocks autoplay
-    }
-  };
-
-  // ==========================================
-  // 1. FIREBASE AUTHENTICATION (RULE 3)
-  // ==========================================
+  // URL Routing detection on load (?role=admin or ?role=rider)
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) {
-        console.error('Authentication error:', err);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setAuthReady(true);
-    });
-    return () => unsubscribe();
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get('role');
+    if (r === 'admin' || r === 'rider') {
+      setRole(r);
+    }
   }, []);
 
-  // ==========================================
-  // 2. FIRESTORE LISTENERS & SEEDING (RULE 1 & 2)
-  // ==========================================
+  // Sync Firebase Data
   useEffect(() => {
-    if (!user) return;
+    const ordersQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('createdAt', 'desc'));
+    const unsubOrders = onSnapshot(ordersQuery, (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      if (fetched.length > 0) setOrders(fetched);
+    }, (err) => console.log('Using local state fallback for orders'));
 
-    const menuCol = collection(db, 'artifacts', appId, 'public', 'data', 'menuItems');
-    const ordersCol = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-    const staffCol = collection(db, 'artifacts', appId, 'public', 'data', 'deliveryStaff');
-
-    const unsubMenu = onSnapshot(
-      menuCol,
-      async (snapshot) => {
-        if (snapshot.empty && !isSeeding) {
-          setIsSeeding(true);
-          try {
-            for (const item of INITIAL_MENU_ITEMS) {
-              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'menuItems', item.id), item);
-            }
-          } catch (e) {
-            console.error('Error seeding menu:', e);
-          }
-        } else {
-          const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setMenuItems(items);
-        }
-      },
-      (error) => console.error('Menu listener error:', error)
-    );
-
-    const unsubStaff = onSnapshot(
-      staffCol,
-      async (snapshot) => {
-        if (snapshot.empty && !isSeeding) {
-          try {
-            for (const staff of INITIAL_DELIVERY_STAFF) {
-              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'deliveryStaff', staff.id), staff);
-            }
-          } catch (e) {
-            console.error('Error seeding staff:', e);
-          }
-        } else {
-          const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-          list.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
-          setDeliveryStaff(list);
-          if (list.length > 0 && !list.some((s) => s.id === selectedRiderId)) {
-            setSelectedRiderId(list[0].id);
-          }
-        }
-      },
-      (error) => console.error('Staff listener error:', error)
-    );
-
-    const unsubOrders = onSnapshot(
-      ordersCol,
-      async (snapshot) => {
-        if (snapshot.empty && !isSeeding) {
-          try {
-            for (const ord of INITIAL_SAMPLE_ORDERS) {
-              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', ord.id), ord);
-            }
-          } catch (e) {
-            console.error('Error seeding orders:', e);
-          }
-        } else {
-          const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-          // Sort newest first in memory (Rule 2)
-          list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-          if (prevOrderCountRef.current > 0 && list.length > prevOrderCountRef.current) {
-            playKitchenBell();
-          }
-          prevOrderCountRef.current = list.length;
-          setOrders(list);
-        }
-      },
-      (error) => console.error('Orders listener error:', error)
-    );
+    const menuQuery = collection(db, 'artifacts', appId, 'public', 'data', 'menu');
+    const unsubMenu = onSnapshot(menuQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const fetchedMenu = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setMenu(fetchedMenu);
+      }
+    }, (err) => console.log('Using local menu fallback'));
 
     return () => {
-      unsubMenu();
-      unsubStaff();
       unsubOrders();
+      unsubMenu();
     };
-  }, [user]);
+  }, []);
 
-  // ==========================================
-  // CART & ORDERING FUNCTIONS
-  // ==========================================
+  // Cart operations
   const addToCart = (item) => {
-    if (!item.inStock) {
-      showToast(`${item.name} is currently sold out!`, 'error');
-      return;
-    }
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+    setCart(prev => {
+      const existing = prev.find(i => i.id === item.id);
       if (existing) {
-        return prev.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i));
+        return prev.map(i => i.id === item.id ? { ...i, qty: i.qty + 1 } : i);
       }
-      return [...prev, { id: item.id, name: item.name, price: item.price, emoji: item.emoji, qty: 1 }];
+      return [...prev, { ...item, qty: 1 }];
     });
-    showToast(`Added ${item.name} to cart`);
   };
 
   const updateCartQty = (id, delta) => {
-    setCart((prev) =>
-      prev
-        .map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i))
-        .filter((i) => i.qty > 0)
-    );
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQty = item.qty + delta;
+        return newQty > 0 ? { ...item, qty: newQty } : null;
+      }
+      return item;
+    }).filter(Boolean));
   };
 
-  const cartSubtotal = useMemo(() => cart.reduce((sum, i) => sum + i.price * i.qty, 0), [cart]);
-  const deliveryFee = orderForm.orderType === 'DELIVERY' && cartSubtotal > 0 ? (cartSubtotal >= 500 ? 0 : 30) : 0;
-  const cartTotal = cartSubtotal + deliveryFee;
-  const totalCartItems = useMemo(() => cart.reduce((sum, i) => sum + i.qty, 0), [cart]);
+  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const deliveryFee = orderType === 'Delivery' ? 30 : 0;
+  const grandTotal = cartTotal + deliveryFee;
 
-  const handlePlaceOrder = async (e) => {
+  const placeOrder = async (e) => {
     e.preventDefault();
-    if (!user) return;
-    if (cart.length === 0) {
-      showToast('Your cart is empty!', 'error');
-      return;
-    }
-    if (!orderForm.customerName.trim() || !orderForm.customerPhone.trim() || !orderForm.addressOrTable.trim()) {
-      showToast('Please fill in your name, phone number, and address/table details.', 'error');
-      return;
-    }
+    if (cart.length === 0) return;
 
-    const orderNum = `MG-${Math.floor(1050 + Math.random() * 8900)}`;
     const newOrder = {
-      orderNumber: orderNum,
-      customerName: orderForm.customerName.trim(),
-      customerPhone: orderForm.customerPhone.trim(),
-      orderType: orderForm.orderType,
-      addressOrTable: orderForm.addressOrTable.trim(),
-      paymentMethod: orderForm.paymentMethod,
-      notes: orderForm.notes.trim(),
+      customer: customerForm,
       items: cart,
-      subtotal: cartSubtotal,
+      orderType,
+      subtotal: cartTotal,
       deliveryFee,
-      totalAmount: cartTotal,
-      status: 'NEW',
-      assignedStaffId: '',
-      assignedStaffName: '',
-      assignedStaffPhone: '',
+      total: grandTotal,
+      status: 'Order Placed',
+      rider: null,
       createdAt: Date.now()
     };
 
     try {
       const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), newOrder);
-      setRecentOrderIds((prev) => [docRef.id, ...prev]);
-      setCart([]);
-      setIsCartOpen(false);
-      setCustomerTab('TRACKER');
-      showToast(`Order #${orderNum} placed! Kitchen has received your order.`);
-    } catch (error) {
-      console.error('Failed to place order:', error);
-      showToast('Could not place order. Please try again.', 'error');
-    }
-  };
-
-  // ==========================================
-  // ADMIN & DELIVERY ACTIONS
-  // ==========================================
-  const updateOrderStatus = async (orderId, nextStatus) => {
-    if (!user) return;
-    try {
-      const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
-      await updateDoc(orderRef, {
-        status: nextStatus,
-        updatedAt: Date.now()
-      });
-      showToast(`Order status updated to ${nextStatus.replace(/_/g, ' ')}`);
+      setActiveOrderTracker({ id: docRef.id, ...newOrder });
     } catch (err) {
-      console.error('Error updating status:', err);
-      showToast('Error updating order status', 'error');
+      // Fallback local simulation if offline
+      const mockId = 'ORD-' + Math.floor(1000 + Math.random() * 9000);
+      const localObj = { id: mockId, ...newOrder };
+      setOrders(prev => [localObj, ...prev]);
+      setActiveOrderTracker(localObj);
     }
+
+    setCart([]);
+    setIsCheckoutOpen(false);
+    setCustomerForm({ name: '', phone: '', address: '', note: '' });
   };
 
-  const assignRiderToOrder = async (orderId, staffId) => {
-    if (!user) return;
-    const staffMember = deliveryStaff.find((s) => s.id === staffId);
+  const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
-      await updateDoc(orderRef, {
-        assignedStaffId: staffMember ? staffMember.id : '',
-        assignedStaffName: staffMember ? staffMember.name : '',
-        assignedStaffPhone: staffMember ? staffMember.phone : '',
-        updatedAt: Date.now()
-      });
-      if (staffMember) {
-        showToast(`Assigned ${staffMember.name} to delivery`);
-      } else {
-        showToast('Delivery partner unassigned');
-      }
-    } catch (err) {
-      console.error('Error assigning rider:', err);
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId), { status: newStatus });
+    } catch(e) {
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     }
   };
 
-  const handleAddTemporaryStaff = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    if (!newStaffForm.name.trim() || !newStaffForm.phone.trim()) {
-      showToast('Please enter staff name and mobile number', 'error');
-      return;
-    }
+  const assignRiderToOrder = async (orderId, riderName) => {
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'deliveryStaff'), {
-        name: newStaffForm.name.trim(),
-        phone: newStaffForm.phone.trim(),
-        vehicle: newStaffForm.vehicle.trim() || 'Two-Wheeler',
-        type: newStaffForm.type,
-        active: true,
-        joinedAt: Date.now()
-      });
-      setNewStaffForm({ name: '', phone: '', vehicle: '', type: 'Temporary / Peak Rush' });
-      showToast('New temporary delivery partner added and ready for orders!');
-    } catch (err) {
-      console.error('Error adding staff:', err);
-      showToast('Failed to add delivery staff', 'error');
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId), { rider: riderName, status: 'Out for Delivery' });
+    } catch(e) {
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, rider: riderName, status: 'Out for Delivery' } : o));
     }
   };
 
-  const toggleStaffActive = async (staff) => {
-    if (!user) return;
+  const toggleItemStock = async (itemId, currentStatus) => {
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'deliveryStaff', staff.id), {
-        active: !staff.active
-      });
-      showToast(`${staff.name} marked as ${!staff.active ? 'On-Duty' : 'Off-Duty'}`);
-    } catch (err) {
-      console.error(err);
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'menu', itemId), { available: !currentStatus });
+    } catch(e) {
+      setMenu(prev => prev.map(m => m.id === itemId ? { ...m, available: !currentStatus } : m));
     }
   };
-
-  const deleteStaffMember = async (staffId) => {
-    if (!user) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'deliveryStaff', staffId));
-      showToast('Delivery staff removed');
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const toggleMenuItemStock = async (item) => {
-    if (!user) return;
-    try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'menuItems', item.id), {
-        inStock: !item.inStock
-      });
-      showToast(`${item.name} marked ${!item.inStock ? 'In Stock' : 'Sold Out'}`);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleAddNewDish = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    if (!newDishForm.name.trim() || !newDishForm.price) {
-      showToast('Dish name and price are required', 'error');
-      return;
-    }
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'menuItems'), {
-        name: newDishForm.name.trim(),
-        category: newDishForm.category,
-        price: Number(newDishForm.price),
-        prepTime: newDishForm.prepTime || '15 mins',
-        isVeg: Boolean(newDishForm.isVeg),
-        inStock: true,
-        bestseller: false,
-        spicyLevel: newDishForm.spicyLevel,
-        description: newDishForm.description.trim() || 'Freshly prepared chef special.',
-        emoji: newDishForm.emoji || '🍲'
-      });
-      setShowAddDishModal(false);
-      setNewDishForm({
-        name: '',
-        category: 'Biryani & Rice',
-        price: '',
-        prepTime: '15 mins',
-        isVeg: false,
-        spicyLevel: 'Medium',
-        description: '',
-        emoji: '🍛'
-      });
-      showToast('New dish added to live menu!');
-    } catch (err) {
-      console.error(err);
-      showToast('Could not add dish', 'error');
-    }
-  };
-
-  // ==========================================
-  // COMPUTED DATA & FILTERS
-  // ==========================================
-  const filteredMenu = useMemo(() => {
-    return menuItems.filter((item) => {
-      const matchesCat = selectedCategory === 'All' || item.category === selectedCategory;
-      const matchesSearch =
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesVeg = !vegOnly || item.isVeg;
-      return matchesCat && matchesSearch && matchesVeg;
-    });
-  }, [menuItems, selectedCategory, searchQuery, vegOnly]);
-
-  const activeOrderCounts = useMemo(() => {
-    return {
-      NEW: orders.filter((o) => o.status === 'NEW').length,
-      PREPARING: orders.filter((o) => o.status === 'PREPARING').length,
-      OUT_FOR_DELIVERY: orders.filter((o) => o.status === 'OUT_FOR_DELIVERY').length,
-      COMPLETED: orders.filter((o) => o.status === 'COMPLETED').length
-    };
-  }, [orders]);
-
-  const todayRevenue = useMemo(() => {
-    return orders.reduce((acc, o) => acc + (Number(o.totalAmount) || 0), 0);
-  }, [orders]);
-
-  const customerTrackedOrders = useMemo(() => {
-    if (trackerPhoneSearch.trim()) {
-      return orders.filter(
-        (o) =>
-          o.customerPhone?.includes(trackerPhoneSearch.trim()) ||
-          o.orderNumber?.toLowerCase().includes(trackerPhoneSearch.trim().toLowerCase())
-      );
-    }
-    if (recentOrderIds.length > 0) {
-      return orders.filter((o) => recentOrderIds.includes(o.id) || o.id.startsWith('ord-sample'));
-    }
-    return orders.slice(0, 4);
-  }, [orders, recentOrderIds, trackerPhoneSearch]);
-
-  const selectedRider = useMemo(
-    () => deliveryStaff.find((s) => s.id === selectedRiderId) || deliveryStaff[0],
-    [deliveryStaff, selectedRiderId]
-  );
-
-  const riderOrders = useMemo(() => {
-    if (!selectedRider) return [];
-    return orders.filter((o) => o.assignedStaffId === selectedRider.id);
-  }, [orders, selectedRider]);
-
-  // Format relative time
-  const formatTimeAgo = (timestamp) => {
-    if (!timestamp) return 'Just now';
-    const diffMins = Math.floor((Date.now() - timestamp) / 60000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins === 1) return '1 min ago';
-    if (diffMins < 60) return `${diffMins} mins ago`;
-    const hours = Math.floor(diffMins / 60);
-    return `${hours}h ${diffMins % 60}m ago`;
-  };
-
-  if (!authReady) {
-    return (
-      <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-6">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center animate-pulse mb-4">
-          <Utensils className="w-7 h-7 text-amber-400" />
-        </div>
-        <p className="text-lg font-semibold text-amber-400">Connecting to Malabar Grand Kitchen Live Sync...</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans selection:bg-amber-500 selection:text-stone-950">
-      {/* ==========================================
-          TOP UNIFIED ROLE SWITCHER BAR
-      ========================================== */}
-      <div className="bg-stone-900/95 border-b border-stone-800 sticky top-0 z-40 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
-          {/* Brand Identity */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-              <Utensils className="w-5 h-5 text-stone-950 stroke-[2.5]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-bold text-base sm:text-lg tracking-tight text-white">
-                  MALABAR GRAND
-                </h1>
-                <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  Live Cloud Sync
-                </span>
-              </div>
-              <p className="text-xs text-stone-400 hidden sm:block">
-                Hotel, Kitchen & Express Delivery Management Suite
-              </p>
-            </div>
-          </div>
-
-          {/* 3-Portal Switcher Pills */}
-          <div className="flex items-center bg-stone-950 p-1 rounded-xl border border-stone-800 w-full sm:w-auto justify-between sm:justify-start">
-            <button
-              onClick={() => setActivePortal('CUSTOMER')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                activePortal === 'CUSTOMER'
-                  ? 'bg-amber-500 text-stone-950 font-semibold shadow-sm'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Customer App</span>
-            </button>
-
-            <button
-              onClick={() => setActivePortal('ADMIN')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all relative ${
-                activePortal === 'ADMIN'
-                  ? 'bg-amber-500 text-stone-950 font-semibold shadow-sm'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              <ChefHat className="w-4 h-4" />
-              <span>Hotel Admin</span>
-              {activeOrderCounts.NEW > 0 && (
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${
-                    activePortal === 'ADMIN'
-                      ? 'bg-stone-950 text-amber-400'
-                      : 'bg-rose-500 text-white animate-bounce'
-                  }`}
-                >
-                  {activeOrderCounts.NEW}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setActivePortal('DELIVERY')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
-                activePortal === 'DELIVERY'
-                  ? 'bg-amber-500 text-stone-950 font-semibold shadow-sm'
-                  : 'text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              <Bike className="w-4 h-4" />
-              <span>Rider App</span>
-              {activeOrderCounts.OUT_FOR_DELIVERY > 0 && (
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${
-                    activePortal === 'DELIVERY'
-                      ? 'bg-stone-950 text-amber-400'
-                      : 'bg-emerald-500 text-stone-950'
-                  }`}
-                >
-                  {activeOrderCounts.OUT_FOR_DELIVERY}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
+      
+      {/* AGENCY HEADER WATERMARK */}
+      <div className="bg-gradient-to-r from-orange-600 to-amber-600 text-xs py-1.5 px-4 text-center font-medium tracking-wide flex justify-center items-center gap-2 shadow-inner">
+        <span>🚀 Agency Demo Built by <strong>Moon Captures Digital Marketing</strong></span>
+        <span className="bg-black/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-widest">Client Pitch Mode</span>
       </div>
 
-      {/* TOAST NOTIFICATION */}
-      {toast && (
-        <div className="fixed bottom-5 right-5 z-50 max-w-sm bg-stone-900 border border-amber-500/40 text-stone-100 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4">
-          {toast.type === 'error' ? (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          )}
-          <span className="text-sm font-medium">{toast.message}</span>
-        </div>
-      )}
-
-      {/* =====================================================================
-          PORTAL 1: CUSTOMER ORDERING & LIVE ORDER TRACKER
-      ===================================================================== */}
-      {activePortal === 'CUSTOMER' && (
+      {/* ==========================================
+          PORTAL 1: CUSTOMER FRONT-END WEBSITE
+         ========================================== */}
+      {role === 'customer' && (
         <div className="flex-1 flex flex-col">
-          {/* Hero Banner */}
-          <div className="bg-gradient-to-r from-stone-900 via-stone-900 to-amber-950/40 border-b border-stone-800/80">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2 max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Authentic Malabar Kitchen • Hot Home Delivery in 30 Mins</span>
-                </div>
-                <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-                  Fresh Dum Biryani, Smokey Alfaham & Hot Parottas
-                </h2>
-                <p className="text-stone-400 text-sm sm:text-base">
-                  Order directly from our hotel kitchen for lightning-fast doorstep delivery, takeaway pickup, or instant table dining.
-                </p>
+          {/* Restaurant Header */}
+          <header className="bg-slate-800/90 backdrop-blur sticky top-0 z-40 border-b border-slate-700 px-4 py-3 shadow-md flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <Utensils className="w-6 h-6 text-white" />
               </div>
+              <div>
+                <h1 className="font-bold text-lg leading-tight flex items-center gap-1.5">
+                  Malabar Grand Hotel <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30 font-normal">Open</span>
+                </h1>
+                <p className="text-xs text-slate-400">Authentic Malabar Cuisine & Mandi</p>
+              </div>
+            </div>
 
-              {/* Customer Sub-navigation (Menu vs Live Order Tracker) */}
-              <div className="flex flex-wrap items-center gap-3 shrink-0">
-                <button
-                  onClick={() => setCustomerTab('MENU')}
-                  className={`px-4 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 transition-all ${
-                    customerTab === 'MENU'
-                      ? 'bg-amber-500 text-stone-950 shadow-lg shadow-amber-500/20'
-                      : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
-                  }`}
-                >
-                  <Utensils className="w-4 h-4" />
-                  <span>Explore Menu</span>
-                </button>
+            <button 
+              onClick={() => setIsCheckoutOpen(true)}
+              className="relative bg-orange-600 hover:bg-orange-500 transition px-4 py-2 rounded-xl font-medium text-sm flex items-center gap-2 shadow-lg shadow-orange-600/30"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Cart</span>
+              {cart.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-amber-400 text-slate-950 font-bold text-xs w-5 h-5 rounded-full flex items-center justify-center shadow">
+                  {cart.reduce((a, c) => a + c.qty, 0)}
+                </span>
+              )}
+            </button>
+          </header>
 
-                <button
-                  onClick={() => setCustomerTab('TRACKER')}
-                  className={`px-4 py-2.5 rounded-xl font-semibold text-sm flex items-center gap-2 transition-all ${
-                    customerTab === 'TRACKER'
-                      ? 'bg-emerald-500 text-stone-950 shadow-lg shadow-emerald-500/20'
-                      : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
-                  }`}
-                >
-                  <Navigation className="w-4 h-4" />
-                  <span>Track Live Order</span>
-                  {orders.filter((o) => o.status !== 'COMPLETED').length > 0 && (
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-stone-950/40 font-bold">
-                      {orders.filter((o) => o.status !== 'COMPLETED').length}
-                    </span>
-                  )}
-                </button>
-
-                <button
-                  onClick={() => setIsCartOpen(true)}
-                  className="px-4 py-2.5 rounded-xl font-semibold text-sm bg-stone-800 hover:bg-stone-700 text-amber-400 border border-amber-500/30 flex items-center gap-2"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Cart ({totalCartItems})</span>
-                  {cartSubtotal > 0 && <span className="text-white">• ₹{cartSubtotal}</span>}
-                </button>
+          {/* Main Hero Banner */}
+          <div className="relative bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-800 px-4 py-8 text-center sm:text-left sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-6">
+            <div className="max-w-lg">
+              <span className="text-xs font-semibold uppercase tracking-wider text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">⚡ Direct Fast Delivery</span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold mt-3 tracking-tight text-white">Hot & Spicy Delicacies Delivered To Your Door</h2>
+              <p className="text-slate-400 text-sm mt-2">Prepared fresh with authentic Malabar spices. Order now for lightning-fast delivery or quick parcel pickup.</p>
+            </div>
+            <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-2xl shadow-xl backdrop-blur text-left min-w-[240px]">
+              <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold mb-2">
+                <Clock className="w-4 h-4" /> <span>Estimated Delivery: 25-35 mins</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-300 text-xs">
+                <MapPin className="w-4 h-4 text-orange-400" /> <span>Kurudimukk, Naduvannur</span>
               </div>
             </div>
           </div>
 
-          {customerTab === 'MENU' ? (
-            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
-              {/* Search & Filter Controls */}
-              <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center mb-6">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search Dum Biryani, Alfaham, Shawarma, Parotta..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-stone-900 border border-stone-800 rounded-xl text-sm text-white placeholder-stone-500 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+          {/* Menu Catalog */}
+          <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8">
+            <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <Flame className="w-5 h-5 text-orange-500" /> Today's Special Menu
+            </h3>
 
-                <div className="flex items-center gap-3 overflow-x-auto pb-1 sm:pb-0">
-                  <button
-                    onClick={() => setVegOnly(!vegOnly)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 shrink-0 transition-all ${
-                      vegOnly
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                        : 'bg-stone-900 border-stone-800 text-stone-400 hover:text-stone-200'
-                    }`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    Pure Veg Only
-                  </button>
-                </div>
-              </div>
-
-              {/* Category Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 no-scrollbar">
-                {CATEGORIES.map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
-                    className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
-                      selectedCategory === category
-                        ? 'bg-amber-500 text-stone-950 shadow-md shadow-amber-500/20'
-                        : 'bg-stone-900 text-stone-400 hover:bg-stone-800 hover:text-stone-200 border border-stone-800'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-
-              {/* Dishes Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 pb-24">
-                {filteredMenu.map((item) => {
-                  const inCartItem = cart.find((c) => c.id === item.id);
-                  return (
-                    <div
-                      key={item.id}
-                      className={`bg-stone-900/90 border rounded-2xl p-4 flex flex-col justify-between transition-all ${
-                        item.inStock
-                          ? 'border-stone-800 hover:border-amber-500/40'
-                          : 'border-stone-800/50 opacity-60'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="w-14 h-14 rounded-2xl bg-stone-800/90 border border-stone-700/60 flex items-center justify-center text-3xl shrink-0">
-                            {item.emoji || '🍛'}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1.5 justify-end">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                item.isVeg
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                              }`}
-                            >
-                              {item.isVeg ? '● Veg' : '▲ Non-Veg'}
-                            </span>
-                            {item.bestseller && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                                ★ Bestseller
-                              </span>
-                            )}
-                            {!item.inStock && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-stone-800 text-stone-400">
-                                Sold Out
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <h3 className="font-bold text-base sm:text-lg text-white mb-1">{item.name}</h3>
-                        <p className="text-xs text-stone-400 line-clamp-2 mb-3 leading-relaxed">
-                          {item.description}
-                        </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {menu.map((item) => (
+                <div key={item.id} className={`bg-slate-800/60 border rounded-2xl overflow-hidden shadow-lg transition flex flex-col ${item.available ? 'border-slate-700 hover:border-orange-500/50' : 'border-slate-800 opacity-60'}`}>
+                  <div className="relative h-48 overflow-hidden bg-slate-700">
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    {!item.available && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center">
+                        <span className="bg-red-500/90 text-white font-bold text-xs uppercase tracking-wider px-3 py-1.5 rounded-lg shadow">Sold Out Today</span>
                       </div>
-
-                      <div className="pt-3 border-t border-stone-800/80 flex items-center justify-between gap-2">
-                        <div>
-                          <span className="text-lg font-extrabold text-amber-400">₹{item.price}</span>
-                          <div className="flex items-center gap-2 text-[11px] text-stone-500">
-                            <Clock className="w-3 h-3" />
-                            <span>{item.prepTime}</span>
-                            <span>•</span>
-                            <span>{item.spicyLevel}</span>
-                          </div>
-                        </div>
-
-                        {!item.inStock ? (
-                          <button
-                            disabled
-                            className="px-4 py-2 rounded-xl bg-stone-800 text-stone-500 text-xs font-bold cursor-not-allowed"
-                          >
-                            Unavailable
-                          </button>
-                        ) : inCartItem ? (
-                          <div className="flex items-center gap-2 bg-amber-500 text-stone-950 rounded-xl px-2 py-1 font-bold">
-                            <button
-                              onClick={() => updateCartQty(item.id, -1)}
-                              className="p-1 hover:bg-stone-950/10 rounded-lg"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </button>
-                            <span className="text-sm min-w-[20px] text-center">{inCartItem.qty}</span>
-                            <button
-                              onClick={() => updateCartQty(item.id, 1)}
-                              className="p-1 hover:bg-stone-950/10 rounded-lg"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => addToCart(item)}
-                            className="px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-stone-950 border border-amber-500/40 text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5"
-                          >
-                            <Plus className="w-4 h-4" />
-                            <span>Add</span>
-                          </button>
-                        )}
+                    )}
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start gap-2 mb-1">
+                        <h4 className="font-bold text-lg text-white">{item.name}</h4>
+                        <span className="font-extrabold text-orange-400">₹{item.price}</span>
                       </div>
+                      <p className="text-xs text-slate-400 line-clamp-2 mt-1">{item.description}</p>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            /* CUSTOMER LIVE ORDER TRACKER VIEW */
-            <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 flex-1">
-              <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 sm:p-6 mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Navigation className="w-5 h-5 text-emerald-400" />
-                      Real-Time Order Status Tracker
-                    </h3>
-                    <p className="text-xs text-stone-400">
-                      Updates automatically as the kitchen prepares and dispatches your meal
-                    </p>
-                  </div>
-                  <div className="relative sm:w-64">
-                    <Search className="w-4 h-4 text-stone-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={trackerPhoneSearch}
-                      onChange={(e) => setTrackerPhoneSearch(e.target.value)}
-                      placeholder="Filter by phone or Order #..."
-                      className="w-full pl-9 pr-3 py-2 bg-stone-950 border border-stone-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"
-                    />
+                    <div className="mt-5 pt-3 border-t border-slate-700/60 flex justify-between items-center">
+                      <span className="text-[11px] text-slate-400 bg-slate-700/50 px-2 py-1 rounded">{item.category}</span>
+                      <button 
+                        onClick={() => addToCart(item)}
+                        disabled={!item.available}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${item.available ? 'bg-orange-600 hover:bg-orange-500 text-white shadow-md shadow-orange-600/30' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add to Cart
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="space-y-4">
-                  {customerTrackedOrders.length === 0 ? (
-                    <div className="text-center py-12 text-stone-400">
-                      <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-stone-600" />
-                      <p className="font-semibold">No matching orders found</p>
-                      <p className="text-xs mt-1">Place a new order from the menu to watch live updates!</p>
+            {/* Active Order Tracker Widget if placed */}
+            {activeOrderTracker && (
+              <div className="mt-12 bg-gradient-to-r from-orange-950/50 to-slate-800 border border-orange-500/30 p-6 rounded-3xl shadow-2xl">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <span className="text-xs font-semibold text-orange-400 uppercase tracking-widest">Live Order Tracker</span>
+                    <h4 className="text-xl font-bold text-white mt-0.5">Order #{activeOrderTracker.id.slice(-5)}</h4>
+                  </div>
+                  <span className="bg-orange-500/20 text-orange-300 border border-orange-500/30 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
+                    {activeOrderTracker.status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-slate-300 bg-slate-900/60 p-4 rounded-xl border border-slate-800 mb-4">
+                  <div><span className="text-slate-500 block">Type:</span> {activeOrderTracker.orderType}</div>
+                  <div><span className="text-slate-500 block">Total Amount:</span> ₹{activeOrderTracker.total}</div>
+                  <div><span className="text-slate-500 block">Assigned Rider:</span> {activeOrderTracker.rider || 'Finding Rider...'}</div>
+                  <div><span className="text-slate-500 block">Customer Phone:</span> {activeOrderTracker.customer.phone}</div>
+                </div>
+                <button onClick={() => setActiveOrderTracker(null)} className="text-xs text-orange-400 hover:underline">Dismiss Tracker</button>
+              </div>
+            )}
+          </main>
+
+          {/* Cart Drawer Modal */}
+          {isCheckoutOpen && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex justify-end">
+              <div className="w-full max-w-md bg-slate-900 border-l border-slate-800 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+                <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><ShoppingBag className="w-5 h-5 text-orange-500" /> Your Food Cart</h3>
+                  <button onClick={() => setIsCheckoutOpen(false)} className="p-2 hover:bg-slate-800 rounded-full"><X className="w-5 h-5" /></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {cart.length === 0 ? (
+                    <div className="text-center py-20 text-slate-500">
+                      <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p>Your cart is empty. Add some delicious food!</p>
                     </div>
                   ) : (
-                    customerTrackedOrders.map((order) => {
-                      const steps = ['NEW', 'PREPARING', 'OUT_FOR_DELIVERY', 'COMPLETED'];
-                      const currentStepIndex = steps.indexOf(order.status);
-
-                      return (
-                        <div
-                          key={order.id}
-                          className="bg-stone-950 border border-stone-800 rounded-2xl p-4 sm:p-5 space-y-4"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-800 pb-3">
+                    <>
+                      <div className="space-y-3">
+                        {cart.map(item => (
+                          <div key={item.id} className="bg-slate-800/60 border border-slate-800 p-3 rounded-xl flex justify-between items-center">
                             <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-extrabold text-amber-400 text-base">
-                                  #{order.orderNumber}
-                                </span>
-                                <span className="text-xs px-2.5 py-0.5 rounded-full bg-stone-800 text-stone-300 font-medium">
-                                  {order.orderType}
-                                </span>
-                                <span className="text-xs text-stone-500">
-                                  {formatTimeAgo(order.createdAt)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-stone-400 mt-0.5">
-                                {order.customerName} • {order.addressOrTable}
-                              </p>
+                              <h5 className="font-semibold text-sm">{item.name}</h5>
+                              <p className="text-xs text-orange-400 font-bold">₹{item.price} x {item.qty} = ₹{item.price * item.qty}</p>
                             </div>
-                            <div className="text-right">
-                              <span className="text-lg font-extrabold text-white">
-                                ₹{order.totalAmount}
-                              </span>
-                              <p className="text-[11px] text-stone-400">{order.paymentMethod}</p>
+                            <div className="flex items-center gap-2 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700">
+                              <button onClick={() => updateCartQty(item.id, -1)} className="p-1 hover:text-orange-400"><Minus className="w-3.5 h-3.5" /></button>
+                              <span className="text-xs font-bold w-4 text-center">{item.qty}</span>
+                              <button onClick={() => updateCartQty(item.id, 1)} className="p-1 hover:text-orange-400"><Plus className="w-3.5 h-3.5" /></button>
                             </div>
                           </div>
-
-                          {/* 4-Step Visual Progress Bar */}
-                          <div className="grid grid-cols-4 gap-2 pt-1">
-                            {[
-                              { key: 'NEW', label: 'Order Placed', icon: Receipt },
-                              { key: 'PREPARING', label: 'Preparing in Kitchen', icon: Flame },
-                              {
-                                key: 'OUT_FOR_DELIVERY',
-                                label: order.orderType === 'DELIVERY' ? 'Out for Delivery' : 'Ready for Pickup',
-                                icon: Bike
-                              },
-                              { key: 'COMPLETED', label: 'Delivered / Served', icon: CheckCircle2 }
-                            ].map((step, idx) => {
-                              const Icon = step.icon;
-                              const isCompleted = idx <= currentStepIndex;
-                              const isCurrent = idx === currentStepIndex;
-                              return (
-                                <div
-                                  key={step.key}
-                                  className={`p-2.5 rounded-xl border text-center flex flex-col items-center justify-center gap-1 transition-all ${
-                                    isCurrent
-                                      ? 'bg-amber-500/15 border-amber-500 text-amber-300'
-                                      : isCompleted
-                                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                                      : 'bg-stone-900/50 border-stone-800 text-stone-600'
-                                  }`}
-                                >
-                                  <Icon className="w-4 h-4" />
-                                  <span className="text-[11px] font-semibold leading-tight">
-                                    {step.label}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Assigned Delivery Partner Banner */}
-                          {order.assignedStaffName && (
-                            <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                                  <Bike className="w-5 h-5" />
-                                </div>
-                                <div>
-                                  <p className="text-xs font-bold text-emerald-300">
-                                    Delivery Partner Assigned: {order.assignedStaffName}
-                                  </p>
-                                  <p className="text-[11px] text-stone-400">
-                                    Contact Rider: {order.assignedStaffPhone}
-                                  </p>
-                                </div>
-                              </div>
-                              <a
-                                href={`tel:${order.assignedStaffPhone}`}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-500 text-stone-950 font-bold text-xs flex items-center gap-1.5"
-                              >
-                                <Phone className="w-3.5 h-3.5" />
-                                Call Rider
-                              </a>
-                            </div>
-                          )}
-
-                          {/* Ordered Items Summary */}
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {order.items?.map((it, i) => (
-                              <span
-                                key={i}
-                                className="text-xs px-2.5 py-1 rounded-lg bg-stone-900 border border-stone-800 text-stone-300"
-                              >
-                                {it.emoji} {it.qty}x {it.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Floating Mobile Bottom Cart Bar */}
-          {cart.length > 0 && !isCartOpen && (
-            <div className="fixed bottom-4 inset-x-4 max-w-xl mx-auto z-30">
-              <button
-                onClick={() => setIsCartOpen(true)}
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-stone-950 p-4 rounded-2xl shadow-2xl flex items-center justify-between font-bold"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-1 rounded-lg bg-stone-950 text-amber-400 text-sm">
-                    {totalCartItems} {totalCartItems === 1 ? 'item' : 'items'}
-                  </span>
-                  <span className="text-base">₹{cartTotal}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-sm">
-                  <span>Proceed to Checkout</span>
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* SLIDE-OVER CART & CHECKOUT DRAWER */}
-          {isCartOpen && (
-            <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex justify-end">
-              <div className="w-full max-w-md bg-stone-900 border-l border-stone-800 h-full flex flex-col justify-between overflow-y-auto">
-                <div className="p-5 border-b border-stone-800 flex items-center justify-between sticky top-0 bg-stone-900 z-10">
-                  <div className="flex items-center gap-2">
-                    <ShoppingBag className="w-5 h-5 text-amber-400" />
-                    <h3 className="font-bold text-lg text-white">Your Order Basket</h3>
-                  </div>
-                  <button
-                    onClick={() => setIsCartOpen(false)}
-                    className="p-2 rounded-lg bg-stone-800 text-stone-400 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {cart.length === 0 ? (
-                  <div className="p-10 text-center my-auto space-y-3">
-                    <ShoppingBag className="w-12 h-12 text-stone-600 mx-auto" />
-                    <p className="text-stone-300 font-semibold">Your cart is empty</p>
-                    <p className="text-xs text-stone-500">
-                      Add delicious Malabar biryanis, grills, or parottas to place an order.
-                    </p>
-                  </div>
-                ) : (
-                  <form onSubmit={handlePlaceOrder} className="p-5 space-y-5 flex-1 overflow-y-auto">
-                    {/* Cart Items */}
-                    <div className="space-y-2.5">
-                      {cart.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between bg-stone-950 p-3 rounded-xl border border-stone-800"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xl">{item.emoji}</span>
-                            <div>
-                              <p className="text-sm font-semibold text-white">{item.name}</p>
-                              <p className="text-xs text-amber-400 font-bold">
-                                ₹{item.price * item.qty}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 bg-stone-800 rounded-lg px-2 py-1">
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(item.id, -1)}
-                              className="text-stone-300 hover:text-white p-0.5"
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <span className="text-xs font-bold w-5 text-center">{item.qty}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(item.id, 1)}
-                              className="text-stone-300 hover:text-white p-0.5"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Order Mode Selector */}
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-stone-400 mb-2">
-                        Select Service Mode
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { id: 'DELIVERY', label: 'Home Delivery' },
-                          { id: 'TAKEAWAY', label: 'Takeaway' },
-                          { id: 'DINE_IN', label: 'Dine-In Table' }
-                        ].map((mode) => (
-                          <button
-                            type="button"
-                            key={mode.id}
-                            onClick={() => setOrderForm({ ...orderForm, orderType: mode.id })}
-                            className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
-                              orderForm.orderType === mode.id
-                                ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                                : 'bg-stone-950 border-stone-800 text-stone-400'
-                            }`}
-                          >
-                            {mode.label}
-                          </button>
                         ))}
                       </div>
-                    </div>
 
-                    {/* Customer Details */}
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs text-stone-400 mb-1">Your Name *</label>
-                        <input
-                          type="text"
-                          required
-                          value={orderForm.customerName}
-                          onChange={(e) =>
-                            setOrderForm({ ...orderForm, customerName: e.target.value })
-                          }
-                          placeholder="e.g., Rahul Nair"
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-stone-400 mb-1">
-                          Mobile Number (for Live Tracking & Rider Call) *
-                        </label>
-                        <input
-                          type="tel"
-                          required
-                          value={orderForm.customerPhone}
-                          onChange={(e) =>
-                            setOrderForm({ ...orderForm, customerPhone: e.target.value })
-                          }
-                          placeholder="e.g., 9847012345"
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-stone-400 mb-1">
-                          {orderForm.orderType === 'DELIVERY'
-                            ? 'Complete Delivery Address & Landmark *'
-                            : orderForm.orderType === 'DINE_IN'
-                            ? 'Table Number / Guest Count *'
-                            : 'Pickup Time / Vehicle Note *'}
-                        </label>
-                        <textarea
-                          rows={2}
-                          required
-                          value={orderForm.addressOrTable}
-                          onChange={(e) =>
-                            setOrderForm({ ...orderForm, addressOrTable: e.target.value })
-                          }
-                          placeholder={
-                            orderForm.orderType === 'DELIVERY'
-                              ? 'House No, Street, Landmark...'
-                              : orderForm.orderType === 'DINE_IN'
-                              ? 'Table #4 (Family AC Section)'
-                              : 'Picking up in 20 mins'
-                          }
-                          className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs text-stone-400 mb-1">Payment Mode</label>
-                          <select
-                            value={orderForm.paymentMethod}
-                            onChange={(e) =>
-                              setOrderForm({ ...orderForm, paymentMethod: e.target.value })
-                            }
-                            className="w-full px-3 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs text-white focus:outline-none focus:border-amber-500"
-                          >
-                            <option value="Cash on Delivery (COD)">Cash on Delivery / Pay at Hotel</option>
-                            <option value="UPI Paid">UPI Instant Pay (GPay/PhonePe)</option>
-                          </select>
+                      {/* Order Type Selector */}
+                      <div className="mt-6">
+                        <label className="text-xs font-semibold text-slate-400 block mb-2">Order Fulfillment Type</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['Delivery', 'Takeaway', 'Dine-In'].map(type => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => setOrderType(type)}
+                              className={`py-2 rounded-xl text-xs font-bold border transition ${orderType === type ? 'bg-orange-600 border-orange-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                            >
+                              {type}
+                            </button>
+                          ))}
                         </div>
+                      </div>
+
+                      {/* Checkout Form */}
+                      <form onSubmit={placeOrder} className="space-y-3 mt-4">
                         <div>
-                          <label className="block text-xs text-stone-400 mb-1">Cooking Note</label>
-                          <input
-                            type="text"
-                            value={orderForm.notes}
-                            onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
-                            placeholder="Less spicy, extra mayo..."
-                            className="w-full px-3 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-xs text-white focus:outline-none focus:border-amber-500"
+                          <label className="text-xs text-slate-400 block mb-1">Your Full Name</label>
+                          <input 
+                            required 
+                            type="text" 
+                            placeholder="Muhammed Hathan" 
+                            value={customerForm.name}
+                            onChange={e => setCustomerForm({...customerForm, name: e.target.value})}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-orange-500" 
                           />
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Bill Summary */}
-                    <div className="bg-stone-950 p-4 rounded-xl border border-stone-800 space-y-1.5 text-xs">
-                      <div className="flex justify-between text-stone-400">
-                        <span>Items Subtotal</span>
-                        <span>₹{cartSubtotal}</span>
-                      </div>
-                      {orderForm.orderType === 'DELIVERY' && (
-                        <div className="flex justify-between text-stone-400">
-                          <span>Delivery Partner Fee (Free above ₹500)</span>
-                          <span>{deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}</span>
+                        <div>
+                          <label className="text-xs text-slate-400 block mb-1">Phone Number</label>
+                          <input 
+                            required 
+                            type="tel" 
+                            placeholder="+91 98765 43210" 
+                            value={customerForm.phone}
+                            onChange={e => setCustomerForm({...customerForm, phone: e.target.value})}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-orange-500" 
+                          />
                         </div>
-                      )}
-                      <div className="border-t border-stone-800 pt-2 flex justify-between text-sm font-extrabold text-white">
-                        <span>Total Payable</span>
-                        <span className="text-amber-400">₹{cartTotal}</span>
-                      </div>
-                    </div>
+                        {orderType === 'Delivery' && (
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Delivery Address & Landmark</label>
+                            <textarea 
+                              required 
+                              rows="2"
+                              placeholder="House name, street, nearby landmark" 
+                              value={customerForm.address}
+                              onChange={e => setCustomerForm({...customerForm, address: e.target.value})}
+                              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-orange-500" 
+                            />
+                          </div>
+                        )}
+                      </form>
+                    </>
+                  )}
+                </div>
 
-                    <button
-                      type="submit"
-                      className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-stone-950 font-extrabold text-sm shadow-lg shadow-amber-500/20 hover:opacity-95 transition-all"
+                {cart.length > 0 && (
+                  <div className="p-4 border-t border-slate-800 bg-slate-800/40">
+                    <div className="space-y-1.5 text-xs text-slate-400 mb-4">
+                      <div className="flex justify-between"><span>Subtotal</span> <span className="text-slate-200">₹{cartTotal}</span></div>
+                      <div className="flex justify-between"><span>Delivery Fee</span> <span className="text-slate-200">₹{deliveryFee}</span></div>
+                      <div className="flex justify-between font-bold text-sm text-white pt-2 border-t border-slate-700"><span>Grand Total</span> <span className="text-orange-400">₹{grandTotal}</span></div>
+                    </div>
+                    <button 
+                      onClick={placeOrder}
+                      className="w-full bg-orange-600 hover:bg-orange-500 py-3 rounded-xl font-bold text-sm transition shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2"
                     >
-                      Confirm & Send Order to Kitchen (₹{cartTotal})
+                      <span>Place Order Now</span> <ArrowRight className="w-4 h-4" />
                     </button>
-                  </form>
+                  </div>
                 )}
               </div>
             </div>
@@ -1457,808 +409,219 @@ export default function App() {
         </div>
       )}
 
-      {/* =====================================================================
-          PORTAL 2: HOTEL ADMIN, KITCHEN & TEMPORARY STAFF MANAGER
-      ===================================================================== */}
-      {activePortal === 'ADMIN' && (
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 flex-1 space-y-6">
-          {/* Top KPI & Sub-Nav Bar */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
-              <span className="text-xs text-stone-400">New Kitchen Orders</span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-2xl font-extrabold text-rose-400">{activeOrderCounts.NEW}</span>
-                <Flame className="w-6 h-6 text-rose-400" />
-              </div>
-            </div>
-
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
-              <span className="text-xs text-stone-400">Out for Delivery</span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-2xl font-extrabold text-amber-400">
-                  {activeOrderCounts.OUT_FOR_DELIVERY}
-                </span>
-                <Bike className="w-6 h-6 text-amber-400" />
-              </div>
-            </div>
-
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
-              <span className="text-xs text-stone-400">Active Delivery Staff</span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-2xl font-extrabold text-emerald-400">
-                  {deliveryStaff.filter((s) => s.active).length} / {deliveryStaff.length}
-                </span>
-                <Users className="w-6 h-6 text-emerald-400" />
-              </div>
-            </div>
-
-            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
-              <span className="text-xs text-stone-400">Total Live Order Volume</span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-2xl font-extrabold text-white">₹{todayRevenue}</span>
-                <Receipt className="w-6 h-6 text-amber-400" />
-              </div>
-            </div>
-          </div>
-
-          {/* Admin Section Tabs */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-800 pb-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setAdminTab('ORDERS')}
-                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-                  adminTab === 'ORDERS'
-                    ? 'bg-amber-500 text-stone-950'
-                    : 'bg-stone-900 text-stone-300 hover:bg-stone-800'
-                }`}
-              >
-                <ChefHat className="w-4 h-4" />
-                <span>Live Order Dispatch Board ({orders.length})</span>
-              </button>
-
-              <button
-                onClick={() => setAdminTab('STAFF')}
-                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-                  adminTab === 'STAFF'
-                    ? 'bg-amber-500 text-stone-950'
-                    : 'bg-stone-900 text-stone-300 hover:bg-stone-800'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                <span>Temporary Delivery Staff Manager ({deliveryStaff.length})</span>
-              </button>
-
-              <button
-                onClick={() => setAdminTab('MENU')}
-                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-                  adminTab === 'MENU'
-                    ? 'bg-amber-500 text-stone-950'
-                    : 'bg-stone-900 text-stone-300 hover:bg-stone-800'
-                }`}
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                <span>Menu & Rush-Hour Stock Control</span>
-              </button>
-            </div>
-
-            <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-1.5 ${
-                soundEnabled
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-stone-900 border-stone-800 text-stone-500'
-              }`}
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              <span>{soundEnabled ? 'Kitchen Bell On' : 'Muted'}</span>
-            </button>
-          </div>
-
-          {/* TAB 1: LIVE ORDER DISPATCH BOARD */}
-          {adminTab === 'ORDERS' && (
-            <div className="space-y-4">
-              {/* Status Filter Pills */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {[
-                  { key: 'ALL', label: `All Orders (${orders.length})` },
-                  { key: 'NEW', label: `New (${activeOrderCounts.NEW})` },
-                  { key: 'PREPARING', label: `Preparing (${activeOrderCounts.PREPARING})` },
-                  {
-                    key: 'OUT_FOR_DELIVERY',
-                    label: `Out for Delivery (${activeOrderCounts.OUT_FOR_DELIVERY})`
-                  },
-                  { key: 'COMPLETED', label: `Completed (${activeOrderCounts.COMPLETED})` }
-                ].map((st) => (
-                  <button
-                    key={st.key}
-                    onClick={() => setAdminStatusFilter(st.key)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap ${
-                      adminStatusFilter === st.key
-                        ? 'bg-stone-100 text-stone-950'
-                        : 'bg-stone-900 text-stone-400 hover:text-white border border-stone-800'
-                    }`}
-                  >
-                    {st.label}
+      {/* ==========================================
+          PORTAL 2: ADMIN COUNTER DASHBOARD (?role=admin)
+         ========================================== */}
+      {role === 'admin' && (
+        <div className="flex-1 flex flex-col">
+          {!adminAuthed ? (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="max-w-md w-full bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl text-center">
+                <div className="w-16 h-16 bg-orange-500/20 text-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-orange-500/30">
+                  <Shield className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">Counter Admin Portal</h2>
+                <p className="text-xs text-slate-400 mb-6">Enter your 4-digit manager PIN to access live orders & kitchen controls.</p>
+                
+                <form onSubmit={(e) => { e.preventDefault(); if(adminPinInput === '1234' || adminPinInput === '2026') setAdminAuthed(true); else alert('Incorrect PIN! Try 1234'); }} className="space-y-4">
+                  <input 
+                    type="password" 
+                    maxLength="4"
+                    placeholder="Enter PIN (e.g. 1234)"
+                    value={adminPinInput}
+                    onChange={e => setAdminPinInput(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-center text-xl tracking-widest font-mono focus:outline-none focus:border-orange-500"
+                  />
+                  <button type="submit" className="w-full bg-orange-600 hover:bg-orange-500 py-3 rounded-xl font-bold text-sm transition shadow-lg shadow-orange-600/30">
+                    Unlock Manager Dashboard
                   </button>
-                ))}
+                </form>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col p-4 sm:p-8 max-w-7xl w-full mx-auto">
+              <div className="flex justify-between items-center mb-8 pb-4 border-b border-slate-800">
+                <div>
+                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">🟢 Admin Authenticated</span>
+                  <h2 className="text-2xl font-bold mt-2">Live Kitchen & Order Manager</h2>
+                </div>
+                <button onClick={() => setAdminAuthed(false)} className="text-xs bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl border border-slate-700">Lock Portal</button>
               </div>
 
-              {/* Orders Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {orders
-                  .filter((o) => adminStatusFilter === 'ALL' || o.status === adminStatusFilter)
-                  .map((order) => (
-                    <div
-                      key={order.id}
-                      className={`bg-stone-900 rounded-2xl p-4 border flex flex-col justify-between gap-4 ${
-                        order.status === 'NEW'
-                          ? 'border-rose-500/60 shadow-lg shadow-rose-500/5'
-                          : order.status === 'PREPARING'
-                          ? 'border-amber-500/50'
-                          : order.status === 'OUT_FOR_DELIVERY'
-                          ? 'border-sky-500/50'
-                          : 'border-stone-800 opacity-80'
-                      }`}
-                    >
-                      <div className="space-y-3">
-                        {/* Card Header */}
-                        <div className="flex items-start justify-between gap-2">
+              {/* Grid Management */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Live Orders Column */}
+                <div className="lg:col-span-2 space-y-4">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><ChefHat className="w-5 h-5 text-orange-500" /> Incoming Customer Orders ({orders.length})</h3>
+                  
+                  {orders.length === 0 ? (
+                    <div className="bg-slate-800/40 border border-slate-800 p-12 text-center rounded-2xl text-slate-500">
+                      No orders yet. Place a test order from the customer view!
+                    </div>
+                  ) : (
+                    orders.map(order => (
+                      <div key={order.id} className="bg-slate-800/70 border border-slate-700 p-5 rounded-2xl shadow-lg space-y-4">
+                        <div className="flex justify-between items-start">
                           <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-extrabold text-white">
-                                #{order.orderNumber}
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                                  order.status === 'NEW'
-                                    ? 'bg-rose-500 text-white'
-                                    : order.status === 'PREPARING'
-                                    ? 'bg-amber-500 text-stone-950'
-                                    : order.status === 'OUT_FOR_DELIVERY'
-                                    ? 'bg-sky-500 text-stone-950'
-                                    : 'bg-emerald-500/20 text-emerald-400'
-                                }`}
-                              >
-                                {order.status.replace(/_/g, ' ')}
-                              </span>
-                            </div>
-                            <p className="text-xs text-stone-400 mt-0.5">
-                              {formatTimeAgo(order.createdAt)} •{' '}
-                              <span className="text-amber-300 font-semibold">{order.orderType}</span>
-                            </p>
+                            <span className="text-xs text-orange-400 font-bold">#{order.id.slice(-6)} • {order.orderType}</span>
+                            <h4 className="font-bold text-lg text-white mt-0.5">{order.customer.name} ({order.customer.phone})</h4>
+                            {order.customer.address && <p className="text-xs text-slate-400 mt-0.5">📍 {order.customer.address}</p>}
                           </div>
-                          <div className="text-right">
-                            <span className="text-base font-extrabold text-amber-400">
-                              ₹{order.totalAmount}
-                            </span>
-                            <p className="text-[10px] text-stone-400">{order.paymentMethod}</p>
-                          </div>
+                          <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider ${order.status === 'Order Placed' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+                            {order.status}
+                          </span>
                         </div>
 
-                        {/* Customer Info */}
-                        <div className="bg-stone-950 p-3 rounded-xl border border-stone-800 text-xs space-y-1">
-                          <div className="flex items-center justify-between font-semibold text-white">
-                            <span>{order.customerName}</span>
-                            <a
-                              href={`tel:${order.customerPhone}`}
-                              className="text-amber-400 hover:underline flex items-center gap-1"
-                            >
-                              <Phone className="w-3 h-3" />
-                              {order.customerPhone}
-                            </a>
-                          </div>
-                          <p className="text-stone-400 flex items-start gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-stone-500 shrink-0 mt-0.5" />
-                            <span>{order.addressOrTable}</span>
-                          </p>
-                          {order.notes && (
-                            <p className="text-amber-300/90 italic pt-1">Note: "{order.notes}"</p>
-                          )}
-                        </div>
-
-                        {/* Item List */}
-                        <div className="space-y-1">
-                          {order.items?.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between text-xs py-1 border-b border-stone-800/60 last:border-0"
-                            >
-                              <span className="text-stone-200 font-medium">
-                                {item.emoji} <strong className="text-amber-400">{item.qty}x</strong>{' '}
-                                {item.name}
-                              </span>
-                              <span className="text-stone-400">₹{item.price * item.qty}</span>
+                        {/* Order Items list */}
+                        <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
+                          {order.items.map((it, idx) => (
+                            <div key={idx} className="flex justify-between text-slate-300">
+                              <span>{it.qty}x {it.name}</span>
+                              <span className="font-mono">₹{it.price * it.qty}</span>
                             </div>
                           ))}
+                          <div className="pt-2 mt-2 border-t border-slate-800 flex justify-between font-bold text-white">
+                            <span>Total:</span>
+                            <span className="text-orange-400">₹{order.total}</span>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Delivery Staff Assignment + Status Action */}
-                      <div className="space-y-2.5 pt-2 border-t border-stone-800">
-                        {order.orderType === 'DELIVERY' && (
-                          <div>
-                            <label className="block text-[11px] text-stone-400 mb-1">
-                              Assign Delivery Partner (Regular or Temp Staff):
-                            </label>
-                            <select
-                              value={order.assignedStaffId || ''}
+                        {/* Admin Action Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">Status:</span>
+                            {['Order Placed', 'Preparing', 'Out for Delivery', 'Completed'].map(st => (
+                              <button
+                                key={st}
+                                onClick={() => updateOrderStatus(order.id, st)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${order.status === st ? 'bg-orange-600 text-white' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'}`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Rider Assignment dropdown */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">Assign Rider:</span>
+                            <select 
+                              value={order.rider || ''}
                               onChange={(e) => assignRiderToOrder(order.id, e.target.value)}
-                              className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-700 text-xs text-white focus:outline-none focus:border-amber-500"
+                              className="bg-slate-900 border border-slate-700 rounded-lg text-xs px-2 py-1 text-slate-200 focus:outline-none"
                             >
-                              <option value="">-- Unassigned (Select Rider) --</option>
-                              {deliveryStaff
-                                .filter((s) => s.active)
-                                .map((rider) => (
-                                  <option key={rider.id} value={rider.id}>
-                                    {rider.name} ({rider.type}) • {rider.phone}
-                                  </option>
-                                ))}
+                              <option value="">Select Rider</option>
+                              {riders.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                             </select>
                           </div>
-                        )}
-
-                        {/* Quick One-Click Progression Buttons */}
-                        <div className="flex items-center gap-2">
-                          {order.status === 'NEW' && (
-                            <button
-                              onClick={() => updateOrderStatus(order.id, 'PREPARING')}
-                              className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs flex items-center justify-center gap-1.5"
-                            >
-                              <Flame className="w-4 h-4" />
-                              Accept & Start Preparing
-                            </button>
-                          )}
-
-                          {order.status === 'PREPARING' && (
-                            <button
-                              onClick={() => updateOrderStatus(order.id, 'OUT_FOR_DELIVERY')}
-                              className="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-stone-950 font-extrabold text-xs flex items-center justify-center gap-1.5"
-                            >
-                              <Bike className="w-4 h-4" />
-                              {order.orderType === 'DELIVERY'
-                                ? 'Dispatch Out for Delivery'
-                                : 'Mark Ready for Pickup/Table'}
-                            </button>
-                          )}
-
-                          {order.status === 'OUT_FOR_DELIVERY' && (
-                            <button
-                              onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
-                              className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold text-xs flex items-center justify-center gap-1.5"
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              Mark Delivered & Completed
-                            </button>
-                          )}
-
-                          {order.status === 'COMPLETED' && (
-                            <div className="w-full py-2 text-center text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-xl">
-                              ✓ Order Completed
-                            </div>
-                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: TEMPORARY DELIVERY STAFF MANAGER */}
-          {adminTab === 'STAFF' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Quick Onboarding Form for Rush-Hour Temporary Delivery Boys */}
-              <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 h-fit">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400">
-                    <UserPlus className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base text-white">
-                      Add Temporary Delivery Staff
-                    </h3>
-                    <p className="text-xs text-stone-400">
-                      Onboard part-time or rush-hour riders in 10 seconds
-                    </p>
-                  </div>
+                    ))
+                  )}
                 </div>
 
-                <form onSubmit={handleAddTemporaryStaff} className="space-y-3 mt-4">
-                  <div>
-                    <label className="block text-xs text-stone-400 mb-1">Rider Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={newStaffForm.name}
-                      onChange={(e) => setNewStaffForm({ ...newStaffForm, name: e.target.value })}
-                      placeholder="e.g., Salman Faris"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-stone-400 mb-1">Mobile Number *</label>
-                    <input
-                      type="tel"
-                      required
-                      value={newStaffForm.phone}
-                      onChange={(e) => setNewStaffForm({ ...newStaffForm, phone: e.target.value })}
-                      placeholder="e.g., 9847099887"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-stone-400 mb-1">
-                      Vehicle / Bike Number
-                    </label>
-                    <input
-                      type="text"
-                      value={newStaffForm.vehicle}
-                      onChange={(e) =>
-                        setNewStaffForm({ ...newStaffForm, vehicle: e.target.value })
-                      }
-                      placeholder="e.g., Bajaj Pulsar • KL-11-Z-9012"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-stone-400 mb-1">Shift / Staff Type</label>
-                    <select
-                      value={newStaffForm.type}
-                      onChange={(e) => setNewStaffForm({ ...newStaffForm, type: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="Temporary / Peak Rush">Temporary / Peak Rush</option>
-                      <option value="Part-Time Evening">Part-Time Evening Shift</option>
-                      <option value="Weekend Extra Rider">Weekend Extra Rider</option>
-                      <option value="Full-Time Fleet">Full-Time Hotel Staff</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-sm transition-all"
-                  >
-                    + Register & Activate Rider Now
-                  </button>
-                </form>
-              </div>
-
-              {/* Active & Temporary Riders Roster */}
-              <div className="lg:col-span-2 space-y-3">
-                {deliveryStaff.map((staff) => {
-                  const staffOrders = orders.filter((o) => o.assignedStaffId === staff.id);
-                  const activeCount = staffOrders.filter((o) => o.status !== 'COMPLETED').length;
-                  const completedCount = staffOrders.filter((o) => o.status === 'COMPLETED').length;
-                  const cashCollected = staffOrders
-                    .filter((o) => o.status === 'COMPLETED')
-                    .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
-
-                  return (
-                    <div
-                      key={staff.id}
-                      className="bg-stone-900 border border-stone-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-base text-white">{staff.name}</span>
-                          <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
-                            {staff.type}
-                          </span>
-                          <span
-                            className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                              staff.active
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : 'bg-stone-800 text-stone-500'
-                            }`}
-                          >
-                            {staff.active ? 'On-Duty' : 'Off-Duty'}
-                          </span>
+                {/* Menu Stock Control Panel */}
+                <div className="space-y-4">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><Utensils className="w-5 h-5 text-orange-500" /> Menu Stock Control</h3>
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3">
+                    <p className="text-xs text-slate-400 mb-2">Toggle dishes instantly to Sold Out if kitchen ingredients run out.</p>
+                    {menu.map(item => (
+                      <div key={item.id} className="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <div>
+                          <h5 className="font-semibold text-sm">{item.name}</h5>
+                          <p className="text-xs text-orange-400">₹{item.price}</p>
                         </div>
-                        <p className="text-xs text-stone-400">
-                          Phone: <strong className="text-stone-200">{staff.phone}</strong> •{' '}
-                          {staff.vehicle}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
-                          <span className="text-sky-400 font-semibold">
-                            Active Deliveries: {activeCount}
-                          </span>
-                          <span className="text-emerald-400 font-semibold">
-                            Completed Today: {completedCount}
-                          </span>
-                          <span className="text-amber-400 font-semibold">
-                            Order Value Handled: ₹{cashCollected}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => toggleStaffActive(staff)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold border ${
-                            staff.active
-                              ? 'bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700'
-                              : 'bg-emerald-500 text-stone-950 border-emerald-500'
-                          }`}
+                        <button 
+                          onClick={() => toggleItemStock(item.id, item.available)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${item.available ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}
                         >
-                          {staff.active ? 'Mark Off-Duty' : 'Set On-Duty'}
-                        </button>
-                        <button
-                          onClick={() => deleteStaffMember(staff.id)}
-                          className="p-2 rounded-xl bg-stone-950 border border-stone-800 text-stone-500 hover:text-rose-400"
-                          title="Remove Staff"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                          {item.available ? 'In Stock' : 'Sold Out'}
                         </button>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: MENU & RUSH-HOUR STOCK CONTROL */}
-          {adminTab === 'MENU' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-lg text-white">
-                    Live Menu Availability Control
-                  </h3>
-                  <p className="text-xs text-stone-400">
-                    Instantly mark dishes Sold Out or In Stock during peak dining hours
-                  </p>
+                    ))}
+                  </div>
                 </div>
-                <button
-                  onClick={() => setShowAddDishModal(true)}
-                  className="px-4 py-2.5 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs sm:text-sm flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add New Dish</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {menuItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-stone-900 border border-stone-800 rounded-2xl p-4 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{item.emoji}</span>
-                      <div>
-                        <p className="font-bold text-sm text-white">{item.name}</p>
-                        <p className="text-xs text-stone-400">
-                          {item.category} • <strong className="text-amber-400">₹{item.price}</strong>
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => toggleMenuItemStock(item)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                        item.inStock
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                      }`}
-                    >
-                      {item.inStock ? 'In Stock' : 'Sold Out'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Modal to Add New Dish */}
-          {showAddDishModal && (
-            <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-              <div className="bg-stone-900 border border-stone-800 rounded-2xl max-w-md w-full p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-lg text-white">Add Dish to Live Menu</h3>
-                  <button
-                    onClick={() => setShowAddDishModal(false)}
-                    className="p-1.5 rounded-lg bg-stone-800 text-stone-400"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleAddNewDish} className="space-y-3">
-                  <div>
-                    <label className="block text-xs text-stone-400 mb-1">Dish Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={newDishForm.name}
-                      onChange={(e) => setNewDishForm({ ...newDishForm, name: e.target.value })}
-                      placeholder="e.g., Thalassery Mutton Dum Biryani"
-                      className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-stone-400 mb-1">Category</label>
-                      <select
-                        value={newDishForm.category}
-                        onChange={(e) =>
-                          setNewDishForm({ ...newDishForm, category: e.target.value })
-                        }
-                        className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-xs text-white"
-                      >
-                        {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-stone-400 mb-1">Price (₹) *</label>
-                      <input
-                        type="number"
-                        required
-                        value={newDishForm.price}
-                        onChange={(e) => setNewDishForm({ ...newDishForm, price: e.target.value })}
-                        placeholder="280"
-                        className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-stone-400 mb-1">Food Icon Emoji</label>
-                      <input
-                        type="text"
-                        value={newDishForm.emoji}
-                        onChange={(e) => setNewDishForm({ ...newDishForm, emoji: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-sm text-white"
-                      />
-                    </div>
-                    <div className="flex items-end pb-2">
-                      <label className="flex items-center gap-2 text-xs text-stone-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newDishForm.isVeg}
-                          onChange={(e) =>
-                            setNewDishForm({ ...newDishForm, isVeg: e.target.checked })
-                          }
-                          className="rounded"
-                        />
-                        Pure Vegetarian Dish
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-stone-400 mb-1">Short Description</label>
-                    <textarea
-                      rows={2}
-                      value={newDishForm.description}
-                      onChange={(e) =>
-                        setNewDishForm({ ...newDishForm, description: e.target.value })
-                      }
-                      placeholder="Describe key ingredients & serving style..."
-                      className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-800 text-xs text-white"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-3 rounded-xl bg-amber-500 text-stone-950 font-extrabold text-sm"
-                  >
-                    Save & Publish Dish
-                  </button>
-                </form>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* =====================================================================
-          PORTAL 3: DELIVERY PARTNER MOBILE PORTAL (FOR REGULAR & TEMP RIDERS)
-      ===================================================================== */}
-      {activePortal === 'DELIVERY' && (
-        <div className="max-w-2xl mx-auto w-full px-4 py-6 flex-1 space-y-5">
-          {/* Rider Identity Selector Header */}
-          <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                  <Bike className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
-                    Delivery Partner Mobile Console
-                  </span>
-                  <h2 className="text-lg font-extrabold text-white">
-                    {selectedRider ? selectedRider.name : 'Select Your Rider Profile'}
-                  </h2>
-                  {selectedRider && (
-                    <p className="text-xs text-stone-400">
-                      {selectedRider.type} • {selectedRider.vehicle}
-                    </p>
-                  )}
-                </div>
+      {/* ==========================================
+          PORTAL 3: RIDER MOBILE CONSOLE (?role=rider)
+         ========================================== */}
+      {role === 'rider' && (
+        <div className="flex-1 flex flex-col p-4 sm:p-8 max-w-2xl w-full mx-auto">
+          <div className="bg-slate-800 border border-slate-700 p-6 rounded-3xl shadow-xl mb-6 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-orange-500/20 text-orange-500 rounded-2xl flex items-center justify-center border border-orange-500/30">
+                <Truck className="w-6 h-6" />
               </div>
-
               <div>
-                <label className="block text-[11px] text-stone-400 mb-1">
-                  Switch Logged-in Rider:
-                </label>
-                <select
-                  value={selectedRider?.id || ''}
-                  onChange={(e) => setSelectedRiderId(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-stone-950 border border-stone-700 text-xs font-bold text-amber-400 focus:outline-none focus:border-amber-500"
-                >
-                  {deliveryStaff.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.type})
-                    </option>
-                  ))}
-                </select>
+                <span className="text-xs text-orange-400 font-semibold uppercase tracking-wider">Delivery Partner Portal</span>
+                <h2 className="text-xl font-bold">Rider Mobile Console</h2>
               </div>
-            </div>
-
-            {/* Rider Quick Stats */}
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-stone-800">
-              <button
-                onClick={() => setRiderFilter('ACTIVE')}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  riderFilter === 'ACTIVE'
-                    ? 'bg-amber-500/15 border-amber-500 text-amber-300'
-                    : 'bg-stone-950 border-stone-800 text-stone-400'
-                }`}
-              >
-                <span className="text-xs block">Assigned Active Tasks</span>
-                <span className="text-2xl font-extrabold text-white">
-                  {riderOrders.filter((o) => o.status !== 'COMPLETED').length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setRiderFilter('COMPLETED')}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  riderFilter === 'COMPLETED'
-                    ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300'
-                    : 'bg-stone-950 border-stone-800 text-stone-400'
-                }`}
-              >
-                <span className="text-xs block">Completed Deliveries</span>
-                <span className="text-2xl font-extrabold text-white">
-                  {riderOrders.filter((o) => o.status === 'COMPLETED').length}
-                </span>
-              </button>
             </div>
           </div>
 
-          {/* Rider Assigned Order Cards */}
-          <div className="space-y-4">
-            {riderOrders.filter((o) =>
-              riderFilter === 'ACTIVE' ? o.status !== 'COMPLETED' : o.status === 'COMPLETED'
-            ).length === 0 ? (
-              <div className="bg-stone-900 border border-stone-800 rounded-2xl p-10 text-center space-y-2">
-                <PackageCheck className="w-10 h-10 text-stone-600 mx-auto" />
-                <p className="font-bold text-stone-300">
-                  {riderFilter === 'ACTIVE'
-                    ? 'No active deliveries assigned to you right now'
-                    : 'No completed deliveries yet'}
-                </p>
-                <p className="text-xs text-stone-500">
-                  When the Hotel Admin assigns an order to {selectedRider?.name}, it will appear here immediately with sound/live sync.
-                </p>
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><MapPin className="w-5 h-5 text-orange-500" /> Assigned Delivery Queue</h3>
+          
+          <div className="space-y-4 flex-1">
+            {orders.filter(o => o.orderType === 'Delivery').length === 0 ? (
+              <div className="bg-slate-800/40 border border-slate-800 p-12 text-center rounded-2xl text-slate-500">
+                No active delivery orders assigned right now.
               </div>
             ) : (
-              riderOrders
-                .filter((o) =>
-                  riderFilter === 'ACTIVE' ? o.status !== 'COMPLETED' : o.status === 'COMPLETED'
-                )
-                .map((order) => (
-                  <div
-                    key={order.id}
-                    className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4 shadow-xl"
-                  >
-                    <div className="flex items-start justify-between border-b border-stone-800 pb-3">
-                      <div>
-                        <span className="text-xs font-bold uppercase px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
-                          Order #{order.orderNumber}
-                        </span>
-                        <h3 className="text-lg font-extrabold text-white mt-1">
-                          {order.customerName}
-                        </h3>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xl font-extrabold text-emerald-400">
-                          ₹{order.totalAmount}
-                        </span>
-                        <span className="block text-[11px] font-bold text-amber-300">
-                          {order.paymentMethod}
-                        </span>
-                      </div>
+              orders.filter(o => o.orderType === 'Delivery').map(order => (
+                <div key={order.id} className="bg-slate-800/80 border border-slate-700 p-5 rounded-2xl shadow-lg space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-xs font-bold text-orange-400">Order #{order.id.slice(-5)}</span>
+                      <h4 className="font-bold text-lg text-white">{order.customer.name}</h4>
                     </div>
-
-                    {/* Delivery Address & Direct Call Action */}
-                    <div className="bg-stone-950 p-3.5 rounded-xl border border-stone-800 space-y-2.5">
-                      <div className="flex items-start gap-2.5">
-                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-[11px] uppercase font-bold text-stone-500 block">
-                            Drop-off Address
-                          </span>
-                          <p className="text-sm font-semibold text-white">
-                            {order.addressOrTable}
-                          </p>
-                        </div>
-                      </div>
-
-                      {order.notes && (
-                        <p className="text-xs text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-lg">
-                          Customer Note: "{order.notes}"
-                        </p>
-                      )}
-
-                      <div className="pt-1 flex items-center gap-2">
-                        <a
-                          href={`tel:${order.customerPhone}`}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-stone-800 hover:bg-stone-700 text-white font-bold text-xs flex items-center justify-center gap-2"
-                        >
-                          <Phone className="w-4 h-4 text-emerald-400" />
-                          <span>Call Customer ({order.customerPhone})</span>
-                        </a>
-                      </div>
-                    </div>
-
-                    {/* Package Items Check */}
-                    <div className="text-xs text-stone-400 space-y-1">
-                      <span className="font-bold text-stone-300 block">
-                        Collect Package Items from Kitchen:
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {order.items?.map((it, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2.5 py-1 rounded-lg bg-stone-950 border border-stone-800 text-stone-200"
-                          >
-                            {it.qty}x {it.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Rider Single-Tap Big Action Button */}
-                    {order.status !== 'COMPLETED' && (
-                      <div className="pt-2">
-                        {order.status !== 'OUT_FOR_DELIVERY' ? (
-                          <button
-                            onClick={() => updateOrderStatus(order.id, 'OUT_FOR_DELIVERY')}
-                            className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
-                          >
-                            <Bike className="w-5 h-5" />
-                            <span>Picked Up Package • Start Delivery</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
-                            className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
-                          >
-                            <CheckCircle2 className="w-5 h-5" />
-                            <span>Mark Order Delivered ({order.paymentMethod})</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <span className="bg-orange-500/20 text-orange-300 border border-orange-500/30 text-xs px-2.5 py-1 rounded-full font-bold">
+                      {order.status}
+                    </span>
                   </div>
-                ))
+
+                  <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                    <p className="text-slate-300 flex items-center gap-2">📍 <strong>Address:</strong> {order.customer.address || 'Takeaway / Counter delivery'}</p>
+                    <p className="text-slate-300 flex items-center gap-2">📞 <strong>Phone:</strong> <a href={`tel:${order.customer.phone}`} className="text-orange-400 underline">{order.customer.phone}</a></p>
+                    <p className="text-slate-300 flex items-center gap-2">💵 <strong>Amount to Collect:</strong> <span className="text-emerald-400 font-bold">₹{order.total} (Cash/UPI)</span></p>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button 
+                      onClick={() => updateOrderStatus(order.id, 'Out for Delivery')}
+                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl text-xs font-bold transition"
+                    >
+                      Accept & Start
+                    </button>
+                    <button 
+                      onClick={() => updateOrderStatus(order.id, 'Completed')}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-4 h-4" /> Mark Delivered
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
       )}
+
+      {/* AGENCY FOOTER ON ALL VIEWS */}
+      <footer className="bg-slate-950 border-t border-slate-800 py-4 px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <p>© 2026 Malabar Grand Hotel • Powered by <strong>Moon Captures Digital Marketing Agency</strong></p>
+        <div className="flex gap-4 text-slate-400 text-[11px]">
+          <a href="?role=customer" className="hover:text-orange-400">Customer View</a>
+          <span>•</span>
+          <a href="?role=admin" className="hover:text-orange-400">Counter Admin Portal</a>
+          <span>•</span>
+          <a href="?role=rider" className="hover:text-orange-400">Rider App</a>
+        </div>
+      </footer>
+
     </div>
   );
 }
